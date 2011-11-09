@@ -17,51 +17,74 @@
 #
 
 from django import forms
+from django.conf import settings
+from ebpub.db.forms import NewsItemForm as NewsItemFormBase
+from ebpub.db.models import NewsItem
+from recaptcha.client import captcha
 
-class NewsItemForm(forms.Form):
+class NewsItemForm(NewsItemFormBase):
+
+    need_captcha = False
+    recaptcha_ip = None
 
     def clean(self):
-        data = self.cleaned_data
+        if self.need_captcha and \
+                getattr(settings, 'RECAPTCHA_PRIVATE_KEY', None) and \
+                getattr(settings, 'RECAPTCHA_PUBLIC_KEY', None):
+            challenge_field = self.data.get('recaptcha_challenge_field')
+            response_field = self.data.get('recaptcha_response_field')
+            client = self.recaptcha_ip  # Must be set by our view code.
+            check_captcha = captcha.submit(
+                challenge_field, response_field,
+                settings.RECAPTCHA_PRIVATE_KEY, client)
 
-        lat = data.get("latitude", None)
-        lon = data.get("longitude", None)
+            if check_captcha.is_valid is False:
+                self.errors['recaptcha'] = 'Invalid captcha value'
 
-        if lat is None and lon is None:
-            raise forms.ValidationError("Please specify a location on the map.")
-
-        return data
+        cleaned_data = super(NewsItemForm, self).clean()
+        # Note, any NewsItem fields that aren't listed in self._meta.fields
+        # have to be manually saved here, because that's the list that's
+        # normally consulted when setting attributes on the instance.
+        for key in forms.fields_for_model(self._meta.model):
+            if key in cleaned_data.keys():
+                setattr(self.instance, key, cleaned_data[key])
+        return cleaned_data
 
 class NeighborMessageForm(NewsItemForm):
-    title = forms.CharField(max_length=255, label="Title")
+
+    class Meta:
+        model = NewsItem
+        # Hide some fields.
+        fields = ('title', 'location_name', 'url', 'description',
+                  'image_url', 'categories',
+                  'description',
+                  'location',
+                  )
+
     location_name = forms.CharField(max_length=255, label="Address or Location",
                                     required=False)
-    url = forms.CharField(max_length=2048, label="Link to more information",
-                          required=False)
     image_url = forms.CharField(max_length=2048, label="Link to image",
                                 required=False)
     categories = forms.CharField(max_length=10240, required=False,
                                  help_text="Separate with commas")
-    description = forms.CharField(max_length=10240, label="Message",
-                                  widget=forms.Textarea)
-    latitude = forms.FloatField(required=False, widget=forms.HiddenInput)
-    longitude = forms.FloatField(required=False, widget=forms.HiddenInput)
+    location = forms.CharField(max_length=255, widget=forms.HiddenInput)
 
 
-class NeighborEventForm(NewsItemForm):
-    title = forms.CharField(max_length=255, label="Title")
-    location_name = forms.CharField(max_length=255, label="Address or Location",
-                                    required=False)
+class NeighborEventForm(NeighborMessageForm):
+
+    class Meta:
+        model = NewsItem
+        # Hide some fields, re-order others.
+        fields = ('title', 'location_name',
+                  'item_date',
+                  'start_time', 'end_time',
+                  'url', 'image_url',
+                  'categories',
+                  'description',
+                  )
+
     item_date = forms.DateField(label="Date")
     start_time = forms.TimeField(label="Start Time", required=False,
                                  input_formats=("%I:%M%p",))
     end_time = forms.TimeField(label="End Time", required=False,
                                input_formats=("%I:%M%p",))
-    url = forms.CharField(max_length=2048, label="Link to more information",
-                          required=False)
-    image_url = forms.CharField(max_length=2048, label="Link to image", required=False)
-    categories = forms.CharField(max_length=10240, required=False,
-                                 help_text="Separate with commas")
-    description = forms.CharField(max_length=10240, label="Message",
-                                  widget=forms.Textarea)
-    latitude = forms.FloatField(required=False, widget=forms.HiddenInput)
-    longitude = forms.FloatField(required=False, widget=forms.HiddenInput)

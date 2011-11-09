@@ -14,21 +14,3 @@
 #
 #   You should have received a copy of the GNU General Public License
 #   along with ebpub.  If not, see <http://www.gnu.org/licenses/>.
-#
-
-from django.conf.urls.defaults import patterns, url
-from ebpub.neighbornews import views
-
-urlpatterns = patterns(
-    '',
-    url(r'^message/new/$', views.new_message, name="new_message"),
-    url(r'^message/(?P<newsitem>.+)/edit/$', views.edit_message, name="edit_message"),
-    url(r'^message/(?P<newsitem>.+)/delete/$', views.delete_message, name="delete_message"),
-
-    url(r'^event/new/$', views.new_event, name="new_event"),
-    url(r'^event/(?P<newsitem>.+)/edit/$', views.edit_event, name="edit_event"),
-    url(r'^event/(?P<newsitem>.+)/delete/$', views.delete_event, name="delete_event"),
-
-    url(r'^by_user/(?P<userid>.+)/$', views.news_by_user, name="neighbornews_by_user"),
-
-)

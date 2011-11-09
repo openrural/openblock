@@ -321,7 +321,7 @@ STATIC_URL='/'
 # REST API
 ###############
 
-MAX_KEYS_PER_USER=3
+MAX_KEYS_PER_USER=1
 
 API_THROTTLE_AT=150  # max requests per timeframe.
 API_THROTTLE_TIMEFRAME = 60 * 60 # default 1 hour.
@@ -364,6 +364,17 @@ required_settings.append('EBPUB_CACHE_GEOCODER')
 
 # Required by openblockapi.apikey to associate keys with user profiles.
 AUTH_PROFILE_MODULE = 'preferences.Profile'
+
+
+# ebpub.neighbornews optionally uses recaptcha.
+# This can be True, False, or a function that takes a request argument.
+def NEIGHBORNEWS_USE_CAPTCHA(request):
+    return True
+
+# You'll also need to sign up for Recaptcha API keys.
+RECAPTCHA_PUBLIC_KEY = ''
+RECAPTCHA_PRIVATE_KEY = ''
+
 
 
 ###################################################################
@@ -434,7 +445,6 @@ LOGGING = {
         }
     }
 }
-
 
 # Batch jobs (django-background-task): how long (in seconds) can a job
 # be locked before we decide it's dead?

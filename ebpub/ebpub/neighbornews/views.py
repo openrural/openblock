@@ -17,19 +17,20 @@
 #
 
 from django.conf import settings
-from django.contrib.gis import geos
+from django.contrib import messages
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_protect
 from ebpub.accounts.models import User
 from ebpub.accounts.utils import login_required
-from ebpub.db.models import Schema, NewsItem, SchemaField, Lookup
+from ebpub.db.models import Schema, SchemaField, Lookup, NewsItem
 from ebpub.neighbornews.forms import NeighborMessageForm, NeighborEventForm
 from ebpub.neighbornews.models import NewsItemCreator
 from ebpub.neighbornews.utils import NEIGHBOR_MESSAGE_SLUG, NEIGHBOR_EVENT_SLUG
-from ebpub.neighbornews.utils import if_disabled404
+from ebpub.neighbornews.utils import if_disabled404, can_edit
 from ebpub.utils.view_utils import eb_render
-import datetime
+from recaptcha.client import captcha
 import re
 
 @if_disabled404(NEIGHBOR_MESSAGE_SLUG)
@@ -38,7 +39,8 @@ import re
 def new_message(request):
     schema = Schema.objects.get(slug=NEIGHBOR_MESSAGE_SLUG)
     FormType = NeighborMessageForm
-    return _new_usertype(request, schema, FormType, _create_message)
+    return _new_item(request, schema, FormType)
+
 
 @if_disabled404(NEIGHBOR_EVENT_SLUG)
 @login_required
@@ -46,18 +48,134 @@ def new_message(request):
 def new_event(request):
     schema = Schema.objects.get(slug=NEIGHBOR_EVENT_SLUG)
     FormType = NeighborEventForm
-    return _new_usertype(request, schema, FormType, _create_event)
+    return _new_item(request, schema, FormType)
 
-def _new_usertype(request, schema, FormType, create_item):
+
+@if_disabled404(NEIGHBOR_MESSAGE_SLUG)
+@login_required
+@csrf_protect
+@can_edit
+def edit_message(request, newsitem):
+    FormType = NeighborMessageForm
+    return _edit_item(request, newsitem, FormType)
+
+@if_disabled404(NEIGHBOR_EVENT_SLUG)
+@login_required
+@csrf_protect
+@can_edit
+def edit_event(request, newsitem):
+    FormType = NeighborEventForm
+    return _edit_item(request, newsitem, FormType)
+
+
+@if_disabled404(NEIGHBOR_MESSAGE_SLUG)
+@login_required
+@csrf_protect
+@can_edit
+def delete_message(request, newsitem):
+    return _delete(request, newsitem)
+
+@if_disabled404(NEIGHBOR_EVENT_SLUG)
+@login_required
+@csrf_protect
+@can_edit
+def delete_event(request, newsitem):
+    return _delete(request, newsitem)
+
+
+################################################################
+# Utility functions.
+
+def _delete(request, newsitem):
+    item = get_object_or_404(NewsItem, id=newsitem)
+    if request.method == 'POST':
+        item.delete()
+        messages.add_message(request, messages.INFO, 'Deleted.')
+        return HttpResponseRedirect(reverse('neighbornews_by_user',
+                                            args=(request.user.id,)))
+    else:
+        return eb_render(request, 'neighbornews/delete_form.html',
+                         {'newsitem': item})
+
+def _edit_item(request, newsitem_id, FormType):
+    instance = NewsItem.objects.get(id=newsitem_id)
+    if request.method == 'POST':
+        form = FormType(request.POST, instance=instance)
+    else:
+        form = FormType(instance=instance)
+    return _update_item(request, form, instance.schema, action='edit')
+
+
+def _new_item(request, schema, FormType):
     if request.method == 'POST':
         form = FormType(request.POST)
-        if form.is_valid():
-            item = create_item(request, schema, form)
-            detail_url = reverse('ebpub-newsitem-detail',
-                                 args=(schema.slug, '%d' % item.id))
-            return HttpResponseRedirect(detail_url)
     else:
         form = FormType()
+    return _update_item(request, form, schema, action='create')
+
+
+def _update_item(request, form, schema, action):
+    # Do we need to use need captcha? 
+    # This might depend on the request, so you can set it to a callable.
+    need_captcha = getattr(settings, 'NEIGHBORNEWS_USE_CAPTCHA', False)
+    if callable(need_captcha):
+        need_captcha = need_captcha(request)
+
+    if need_captcha:
+        form.need_captcha = True
+        form.recaptcha_ip = request.META['REMOTE_ADDR']
+
+    cat_field = SchemaField.objects.get(schema=schema, name='categories')
+    if form.is_bound and form.is_valid():
+        form.instance.schema = schema
+        item = form.save()
+
+        # Add a NewsItemCreator association; un-lazy the User.
+        user = User.objects.get(id=request.user.id)
+        NewsItemCreator.objects.get_or_create(news_item=item, user=user)
+
+        # Image url.
+        if form.cleaned_data['image_url']:
+            item.attributes['image_url'] = form.cleaned_data['image_url']
+
+        # Times.
+        for key in ('start_time', 'end_time'):
+            if key in form.fields and form.cleaned_data.get(key):
+                item.attributes[key] = form.cleaned_data[key]
+
+        # 'categories'
+        cats = [cat for cat in form.cleaned_data['categories'].split(',') if cat.strip()]
+        if len(cats):
+            lookups = set()
+            for cat in cats:
+                code = _category_code(cat)
+                nice_name = _category_nice_name(cat)
+                lu = Lookup.objects.get_or_create_lookup(cat_field, nice_name, code, "", False)
+                lookups.add(lu.id)
+            item.attributes['categories'] = ','.join(['%d' % luid for luid in lookups])
+
+        detail_url = reverse('ebpub-newsitem-detail',
+                             args=(schema.slug, '%d' % item.id))
+        if action == 'create':
+            messages.add_message(request, messages.INFO, '%s created.' % schema.name)
+        else:
+            messages.add_message(request, messages.INFO, '%s edited.' % schema.name)
+        return HttpResponseRedirect(detail_url)
+
+    elif form.instance:
+        if form.instance.attributes.get('categories'):
+            cat_ids = form.instance.attributes['categories'].split(',')
+            cat_lookups = Lookup.objects.filter(schema_field=cat_field, id__in=cat_ids)
+            form.fields['categories'].initial = ', '.join(
+                sorted([look.name for look in cat_lookups]))
+        if form.instance.location:
+            form.fields['location'].initial = form.instance.location.wkt
+        for key in ('start_time', 'end_time', 'image_url'):
+            if key in form.fields and form.instance.attributes.get(key):
+                value = form.instance.attributes[key]
+                if key.endswith('time'):
+                    value = value.strftime('%H:%M%p')
+                form.fields[key].initial = value
 
     mapconfig = {
         'locations': [],
@@ -71,76 +189,22 @@ def _new_usertype(request, schema, FormType, create_item):
         'default_lon': settings.DEFAULT_MAP_CENTER_LON,
         'default_lat': settings.DEFAULT_MAP_CENTER_LAT,
         'default_zoom': settings.DEFAULT_MAP_ZOOM,
-        'schema': schema
+        'schema': schema,
+        'action': action,
+        'need_captcha': need_captcha,
     }
     return eb_render(request, "neighbornews/new_message.html", ctx)
 
-def _create_event(request, schema, form):
-    item = _create_item(request, schema, form)
-    item.attributes['start_time'] = form.cleaned_data['start_time']
-    item.attributes['end_time'] = form.cleaned_data['end_time']
-    item.save()
-    return item
-
-def _create_message(request, schema, form):
-    return _create_item(request, schema, form)
-
-def _create_item(request, schema, form):
-    item = NewsItem(schema=schema)
-
-    # Common attributes.
-    for attr in ('title', 'description', 'location_name', 'url'):
-        setattr(item, attr, form.cleaned_data[attr])
-
-    # Location.
-    lon = form.cleaned_data['longitude']
-    lat = form.cleaned_data['latitude']
-    item.location = geos.Point(lon, lat)
-
-    # Maybe specified ...
-    if 'item_date' in form.cleaned_data:
-        item.item_date = form.cleaned_data['item_date']
-    else:
-        item.item_date = datetime.datetime.now().date()
-    item.pub_date = datetime.datetime.now()
-    item.save()
-
-    # 'categories'
-    cats = [cat for cat in form.cleaned_data['categories'].split(',') if cat.strip()]
-    if len(cats):
-        cat_field = SchemaField.objects.get(schema=schema, name='categories')
-        lookups = set()
-        for cat in cats:
-            code = _category_code(cat)
-            nice_name = _category_nice_name(cat)
-            lu = Lookup.objects.get_or_create_lookup(cat_field, nice_name, code, "", False)
-            lookups.add(lu.id)
-        item.attributes['categories'] = ','.join(['%d' % luid for luid in lookups])
-
-    # Image link.
-    if form.cleaned_data['image_url']:
-        item.attributes['image_url'] = form.cleaned_data['image_url']
-
-    item.save()
-    # Add a NewsItemCreator association; un-lazy the User.
-    user = User.objects.get(id=request.user.id)
-    creator = NewsItemCreator(news_item=item, user=user)
-    creator.save()
-    return item
 
 def _category_code(cat):
-    code = cat
-    code = code.strip()
-    code = code.lower()
+    code = cat.strip().lower()
     code = re.sub('\s+', ' ', code)
     code = re.sub('[^\w]', '-', code)
     return code
 
 def _category_nice_name(cat):
-    nice = cat
-    nice = nice.strip()
+    nice = cat.strip().lower()
     nice = re.sub('\s+', ' ', nice)
-    nice = nice.lower()
     return nice
 
 def news_by_user(request, userid):
@@ -163,5 +227,3 @@ def news_by_user(request, userid):
     context = {'items_by_schema': items_by_schema, 'user': user,
                'is_viewing_self': is_viewing_self}
     return eb_render(request, "neighbornews/news_by_user.html", context)
-
-
