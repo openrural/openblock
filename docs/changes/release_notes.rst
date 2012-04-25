@@ -28,6 +28,9 @@ Upgrade Notes
 Backward Incompatibilities
 --------------------------
 
+* Removed mystery fields Schema.grab_bag, Schema.grab_bag_headline,
+  Schema.intro. (Ticket #232)
+
 * Removed safe_id_sort_reversed template tag; use the for loop's
   reverse option instead, eg.
   {% for item in itemlist|safe_id_sort reversed %}
@@ -83,6 +86,8 @@ Backward Incompatibilities
 
 New Features in 1.2
 -------------------
+
+* Support multiple types of Yahoo maps, due to olwidget upgrade.
 
 * ebpub.geocoder.base.full_geocode() now has a convert_to_block
   argument, factored out from ebdata.retrieval.  If True, this
@@ -282,6 +287,8 @@ Documentation
 
 * Auto-doc from all(?) ebpub, ebdata, obadmin, obdemo classes.
   Ticket #159.
+
+* Document ``ebpub.db.bin`` scripts. Ticket #96.
 
 * Documentation about comments and flagging of NewsItems. Ticket #252
 

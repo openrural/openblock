@@ -239,6 +239,8 @@ NewsItems have several distinct notions of location:
   about possibly making more use of self.location_object.
 
 
+.. _aggregates:
+
 Aggregates
 ----------
 
@@ -248,7 +250,8 @@ Schema; for example, charts of how many were added each day.
 Because these calculations can be expensive, there's an infrastructure
 for caching the aggregate numbers regularly in separate tables (db_aggregate*).
 
-To do this, just run the ``update_aggregates`` script on the command line.
+To do this, just run the :py:mod:`update_aggregates <ebpub.db.bin.update_aggregates>`
+script on the command line.
 
 You'll want to do this on a regular basis, depending on how often you update
 your data. **Some parts of the site (such as charts) will not be visible** until
@@ -480,11 +483,8 @@ class SchemaManager(models.Manager):
             'short_description',
             'summary',
             'source',
-            'grab_bag_headline',
-            'grab_bag',
             'short_source',
             'update_frequency',
-            'intro',
             )
 
     def allowed_schema_ids(self):
@@ -624,12 +624,9 @@ class Schema(models.Model):
     summary = models.TextField(blank=True, default='')
     source = models.TextField(blank=True, default='',
                               help_text='Where this information came from, as one or more URLs, one per line.')
-    grab_bag_headline = models.CharField(max_length=128, blank=True, default='') # Remove? #232
-    grab_bag = models.TextField(blank=True, default='')  # Remove? #232
     short_source = models.CharField(max_length=128, blank=True, default='One-line description of where this information came from.')
     update_frequency = models.CharField(max_length=64, blank=True, default='',
                                         choices=FREQUENCY_CHOICES)
-    intro = models.TextField(blank=True, default='')  # Remove? #232
 
     class Meta:
         ordering = ('name',)
