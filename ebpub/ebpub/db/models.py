@@ -615,8 +615,11 @@ class Schema(models.Model):
     def natural_key(self):
         return (self.slug,)
 
-    def url(self):
+    def get_absolute_url(self):
         return urlresolvers.reverse('ebpub-schema-filter', args=(self.slug,))
+
+    # Backward compatibility.
+    url = get_absolute_url
 
     ######################################################################
     # Metadata fields that used to live in a separate SchemaInfo model.
@@ -766,8 +769,11 @@ class LocationType(models.Model):
     def __unicode__(self):
         return u'%s, %s' % (self.name, self.scope)
 
-    def url(self):
+    def get_absolute_url(self):
         return urlresolvers.reverse('ebpub-loc-type-detail', args=(self.slug,))
+
+    # Backward compatibility.
+    url = get_absolute_url
 
     def natural_key(self):
         return (self.slug,)
@@ -868,9 +874,12 @@ class Location(models.Model):
     def __unicode__(self):
         return self.name
 
-    def url(self):
+    def get_absolute_url(self):
         return urlresolvers.reverse('ebpub-location-recent',
                                     args=(self.location_type.slug, self.slug))
+
+    # Backward compatibility.
+    url = get_absolute_url
 
     def rss_url(self):
         return urlresolvers.reverse('ebpub-location-rss',
@@ -915,14 +924,14 @@ class LocationSynonym(models.Model):
                                  help_text='Location this is a synonym for.')
     objects = LocationSynonymManager()
 
-    def save(self):
+    def save(self, force_insert=False, force_update=False, using=None):
         # Not doing this in clean() because we really don't want there to be
         # any way to get this wrong.
         if self.normalized_name:
             self.normalized_name = normalize(self.normalized_name)
         else:
             self.normalized_name = normalize(self.pretty_name)
-        super(LocationSynonym, self).save()
+        super(LocationSynonym, self).save(force_update=force_update, force_insert=force_insert, using=using)
 
     def __unicode__(self):
         return self.pretty_name
@@ -1271,9 +1280,9 @@ class NewsItem(models.Model):
 
     schema = models.ForeignKey(Schema, help_text=u'What kind of news is this and what extra fields does it have?')
     title = models.CharField(max_length=255, help_text=u'the "headline"')
-    description = models.TextField()
+    description = models.TextField(blank=True, default=u'')
     url = models.TextField(
-        blank=True,
+        blank=True, default=u'',
         help_text="link to original source for this news")
     pub_date = models.DateTimeField(
         db_index=True,
@@ -1329,9 +1338,12 @@ class NewsItem(models.Model):
     def __unicode__(self):
         return self.title or 'Untitled News Item'
 
-    def item_url(self):
+    def get_absolute_url(self):
         return urlresolvers.reverse('ebpub-newsitem-detail',
                                     args=[self.schema.slug, self.id], kwargs={})
+
+    # Backward compatibility.
+    item_url = get_absolute_url
 
     def item_url_with_domain(self):
         return 'http://%s%s' % (settings.EB_DOMAIN, self.item_url())

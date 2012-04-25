@@ -87,6 +87,14 @@ Backward Incompatibilities
 New Features in 1.2
 -------------------
 
+* Location import in admin UI now runs in background.
+
+* Admin UI now provides links to view various things (NewsItems,
+  Locations, Blocks, Streets, LocationTypes) on the live site.
+
+* ``NewsItem`` now allows saving with an empty ``description.``;
+  some things might really only have a title available.
+
 * Support multiple types of Yahoo maps, due to olwidget upgrade.
 
 * ebpub.geocoder.base.full_geocode() now has a convert_to_block
@@ -208,6 +216,20 @@ New Features in 1.2
 
 Bugs fixed
 ----------
+
+* Location import (both command-line and admin UI) no longer blows up
+  when re-importing the same Locations.
+
+* RSS feed URLs fixed to use settings.EB_DOMAIN rather than the sites
+  framework for getting the root URL.  For consistency with the rest
+  of OpenBlock.
+
+* parsing.normalize() and text.slugify() no longer blow up if fed
+  non-string input.
+
+* Schemas with allow_charting=False were shown on the schema_filter
+  view, but not on its map. Fixed schema_filter_geojson so now they
+  show up on map too.
 
 * Fix filtering by location and date on big map page.
 
