@@ -58,8 +58,6 @@ Backward Incompatibilities
 * Changed URLs used by the schema_filter view, so some bookmarks may
   break. (Ticket # 266)
 
-* Removed unused ebpub/utils/mapmath.py module.
-
 * Removed the EB_MEDIA_ROOT and EB_MEDIA_URL settings; now use
   django's normal MEDIA_ROOT and MEDIA_URL instead.
 
@@ -217,6 +215,13 @@ New Features in 1.2
 Bugs fixed
 ----------
 
+* Handle importing locations in other projections than 4326.
+  Thanks Karen Tracey. Refs #214.
+
+* We now use the primary street name for blocks loaded from US census TIGER
+  data, instead of whichever one we see last, which may be an alternate name.
+  Issue #278
+
 * Location import (both command-line and admin UI) no longer blows up
   when re-importing the same Locations.
 
@@ -307,7 +312,11 @@ Bugs fixed
 Documentation
 -------------
 
-* Auto-doc from all(?) ebpub, ebdata, obadmin, obdemo classes.
+* Better docs on how to import spreadsheets via scraper or admin.
+
+* Better docs on what the "core" NewsItem fields are.
+
+* Auto-doc from all(?) ebpub, ebdata, obadmin, obdemo packages.
   Ticket #159.
 
 * Document ``ebpub.db.bin`` scripts. Ticket #96.

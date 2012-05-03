@@ -16,7 +16,7 @@
 #   along with ebpub.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-'''
+"""
 
 .. _newsitems:
 
@@ -30,18 +30,34 @@ many disparate types of news -- e.g., crime, photos and restaurant inspections.
 Each type of news is referred to as a :py:class:`Schema`,
 and an individual piece of news is a :py:class:`NewsItem`.
 
+.. _newsitem_core_fields:
+
+Core Fields of NewsItems
+------------------------
+
+The :py:class:`NewsItem <NewsItem>` model in itself is generic -- a
+lowest-common denominator of each piece of news on the site. It has:
+
+* title (required)
+* url (optional)
+* description (optional)
+* location_name (optional but highly desirable; can be reverse-geocoded from location if you have one)
+* location (optional but highly desirable; can be geocoded from location_name if you have one)
+* item_date (default: today)
+* pub_date (default: current date and time)
+
 .. _newsitem_attributes:
 
 Flexible data: SchemaFields and Attributes
 ------------------------------------------
 
-The NewsItem model in itself is generic -- a lowest-common denominator of each
-piece of news on the site. If you'd like to extend your NewsItems to include
-Schema-specific attributes, you can use :py:class:`SchemaFields <SchemaField>`.
+If you'd like to extend your NewsItems to include
+more information, you can use :py:class:`SchemaFields <SchemaField>`.
 
 Each piece of news is described by:
 
-* One :py:class:`NewsItem` instance
+* One :py:class:`NewsItem` instance, with just the core fields like
+  title and description.
 
 * One corresponding :py:class:`Attribute` instance, which is a dictionary-like
   object containing extra data, and is available as ``newsitem.attributes``.
@@ -49,8 +65,8 @@ Each piece of news is described by:
 * One :py:class:`Schema` that identifies the "type" of NewsItem; and
 
 * A set of :py:class:`SchemaFields <SchemaField>`, each of which describes:
-  a valid key for the attributes dictionary; the type of allowed values;
-  and some configuration metadata about how to display and use that field.
+  a valid key for the attributes dictionary; the type of its allowed values;
+  and some configuration metadata about how to display and use that attribute.
 
 This is intended to be flexible enough for real-world news data, while
 still allowing for fast database queries.  For more background,
@@ -68,29 +84,29 @@ you might be interested in the video
    full-featured as PostGIS.
 
 
-Examples might make this clearer. To assign the whole dictionary::
+Examples might make this clearer. To assign the whole ``attributes`` dictionary::
 
     ni = NewsItem.objects.get(...)
-    ni.attributes = {'some_schemafield_name': 'some value'}
+    ni.attributes = {'sale_price': 19}
     # There is no need to call ni.save() or ni.attributes.save();
     # the assignment operation does that behind the scenes.
 
 To assign a single value::
 
-    ni.attributes['some_schemafield_name'] = 'some other value'
+    ni.attributes['sale_price'] = 19
     # Again there is no need to save() anything explicilty.
 
 To get a value::
 
-    print ni.attributes['some_schemafield_name']
+    print ni.attributes['sale_price']
 
 Or, from a database perspective: The "db_attribute" table stores
 arbitrary attributes for each NewsItem, and the "db_schemafield" table
 is the key for those attributes.
-
 A SchemaField says, for example, that
 the "int01" column in the db_attribute table for the "real estate
 sales" Schema corresponds to the "sale price".
+
 We'll walk through this example in detail below.
 
 
@@ -396,7 +412,7 @@ the Aggregates section below.)
 
 module contents
 ================
-'''
+"""
 
 from django.conf import settings
 from django.contrib.gis.db import models
@@ -1286,13 +1302,13 @@ class NewsItem(models.Model):
         help_text="link to original source for this news")
     pub_date = models.DateTimeField(
         db_index=True,
-        help_text='Date/time this Item was added to the OpenBlock site.',
+        help_text='Date/time this Item was added to the OpenBlock site; default now.',
         default=datetime.datetime.now,
         blank=True,
         )
     item_date = models.DateField(
         db_index=True,
-        help_text='Date (without time) this Item occurred, or failing that, the date of publication on the original source site.',
+        help_text='Date (without time) this Item occurred, or failing that, the date of publication on the original source site; default today.',
         default=datetime.date.today,
         blank=True,
         )
