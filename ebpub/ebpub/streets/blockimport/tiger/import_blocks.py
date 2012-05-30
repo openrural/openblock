@@ -96,7 +96,7 @@ VALID_MTFCC.add('S1740') # private roads, often unnamed.
 
 class TigerImporter(BlockImporter):
     """
-    Imports blocks using TIGER/Line data from the US Census.
+    Imports blocks using TIGER/Line shapefile data from the US Census.
 
     If `filter_city` is passed, we will skip features which don't have
     at least one of left_city or right_city matching the string.
@@ -119,9 +119,12 @@ class TigerImporter(BlockImporter):
     """
     def __init__(self, edges_shp, featnames_dbf, faces_dbf, place_shp,
                  filter_city=None, filter_bounds=None, filter_locations=(),
-                 verbose=False, encoding='utf8', fix_cities=False):
+                 verbose=False, encoding='utf8', fix_cities=False,
+                 reset=False,
+                 ):
         BlockImporter.__init__(self, shapefile=edges_shp, layer_id=0,
-                               verbose=verbose, encoding=encoding)
+                               verbose=verbose, encoding=encoding, reset=reset,
+                               )
         self.fix_cities = fix_cities
         self.featnames_db = self._clean_featnames(featnames_dbf)
         self.faces_db = self._load_rel_db(faces_dbf, 'TFID')
@@ -189,6 +192,7 @@ class TigerImporter(BlockImporter):
             # A lot of alternates seem to be duplicates of the primary name,
             # not useful.
             alternates = [row for row in alternates if row['NAME'].upper() != primary['NAME'].upper()]
+
             # For now we just log alternates that were found. Ideally we could save these
             # as aliases somehow, but at the moment we don't have a good way to do that.
 
@@ -279,15 +283,22 @@ class TigerImporter(BlockImporter):
         if tlid in self.featnames_db:
             suffix_standardizer = geocoder_parsing.STANDARDIZERS['suffix']
             suffix_matcher = geocoder_parsing.TOKEN_REGEXES['suffix']
+
             for featname in self.featnames_db[tlid]:
+                # Prefix eg. 'STATE HWY'.
+                block_fields['prefix'] = featname.get('PRETYPABRV', '').upper().strip()
+                # Main part of the name, eg. 'MAIN'
                 block_fields['street'] = featname['NAME'].upper().strip()
+                # Prefix direction eg. 'N'.
                 block_fields['predir'] = featname['PREDIRABRV'].upper().strip()
-                block_fields['suffix'] = featname['SUFTYPABRV'].upper().strip()
+                # Suffix direction eg. 'SW'.
                 block_fields['postdir'] = featname['SUFDIRABRV'].upper().strip()
+                # Road type, eg. 'ST', 'AVE', 'PKWY'.
+                block_fields['suffix'] = featname['SUFTYPABRV'].upper().strip()
                 if not block_fields['suffix']:
                     # Bug in the data:
-                    # Many streets named eg. 'Wilson Park' put the whole thing in the name
-                    # and nothing in the suffix.
+                    # Many streets named eg. 'Wilson Park' put the whole thing in the
+                    # name and nothing in the suffix.
                     # This breaks our geocoder, because it parses 'Park' as the suffix
                     # and expects to find it in that field.
                     # So, check if the street name ends with a recognized suffix.
@@ -299,6 +310,18 @@ class TigerImporter(BlockImporter):
                             block_fields['suffix'] = suffix_standardizer(raw_suffix)
                             block_fields['street'] = street
 
+                # More bugs in data: some auxiliary roads have the prefix as
+                # part of the name in nonstandard format.
+                if not block_fields['prefix']:
+                    prefix, street = None, None
+                    if block_fields['street'].startswith('INTERSTATE '):
+                        prefix, street = block_fields['street'].split(' ', 1)
+                    elif block_fields['street'].startswith('I-'):
+                        prefix, street = block_fields['street'].split('-', 1)
+                    if prefix and street:
+                        logger.debug("Splitting prefix %r out of street %r" % (prefix, street))
+                        block_fields['street'] = street.strip()
+                        block_fields['prefix'] = prefix.strip()
                 yield block_fields.copy()
 
                 self.tlids_with_blocks.add(tlid)
@@ -316,6 +339,11 @@ def main(argv=None):
                       'type. Only makes sense if you have configured '
                       'multiple_cities=True in the METRO_LIST of your settings.py, '
                       'and after you have created some appropriate Locations.')
+
+
+    parser.add_option('-r', '--reset', action='store_true', default=False,
+                      help="Whether to delete existing blocks and start from scratch. This will attempt to fix other models that have foreign keys to blocks; use at your own risk though."
+                      )
 
     parser.add_option('-b', '--filter-bounds', action="store", default=1,
                       type='int',
@@ -359,15 +387,16 @@ def main(argv=None):
         filter_bounds = filter_bounds
 
     tiger = TigerImporter(*args, verbose=options.verbose,
-                           filter_city=options.city, 
+                           filter_city=options.city,
                            filter_bounds=filter_bounds,
                            encoding=options.encoding,
+                           reset=options.reset,
                            fix_cities=options.fix_cities)
     if options.verbose:
         import logging
         logger.setLevel(logging.DEBUG)
-    num_created = tiger.save()
-    logger.info( "Created %d new blocks" % num_created)
+    num_created, num_existing = tiger.save()
+    logger.info( "Created %d new blocks; kept %d old ones" % (num_created, num_existing))
     logger.debug("... from %d feature names" % len(tiger.featnames_db))
     logger.debug("feature tlids with blocks: %d" % len(tiger.tlids_with_blocks))
 

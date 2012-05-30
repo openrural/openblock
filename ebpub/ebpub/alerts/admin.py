@@ -1,4 +1,4 @@
-#   Copyright 2007,2008,2009,2011 Everyblock LLC, OpenPlans, and contributors
+#   Copyright 2012 OpenPlans and contributors
 #
 #   This file is part of ebpub
 #
@@ -16,14 +16,18 @@
 #   along with ebpub.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# These might end up in settings eventually, but for now it's fine to
-# hardcode them.
+from .models import EmailAlert
+from ebpub.geoadmin import OSMModelAdmin
+from django.contrib.gis import admin
 
-BLOCK_RADIUS_CHOICES = {'1': .0015, '3': .0035, '8': .007} # number of blocks -> number of geographic degrees ... should this vary with latitude? oh well.
-BLOCK_RADIUS_COOKIE_NAME = 'radius'
-BLOCK_RADIUS_DEFAULT = '8'
-HIDE_ADS_COOKIE_NAME = 'h'
 
-# How far from a block center various model geometries can be,
-# and still be considered on that block.
-BLOCK_FUZZY_DISTANCE_METERS = 15
+class AlertAdmin(OSMModelAdmin):
+
+    readonly_fields = ('block',)
+
+    # TODO: need to refactor the BlockAlertForm clean() method so we
+    # can use it here too... and the extra form fields that it needs.
+    # Otherwise we can't save with empty schema list.
+
+
+admin.site.register(EmailAlert, AlertAdmin)

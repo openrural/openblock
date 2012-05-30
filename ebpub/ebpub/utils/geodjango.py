@@ -164,6 +164,43 @@ def get_default_bounds():
     """
     return Polygon.from_bbox(get_metro()['extent'])
 
+def interpolate(linestring, distance, normalized=True):
+    """
+    Find a point along the linestring that is ``distance`` from the first point.
+
+    If normalized=True, distance is fraction of the linestring's length
+    (range 0.0 - 1.0).
+
+    Example:
+
+    >>> ls = LineString((0.0, 0.0), (1.1, 1.1), (2.2, 2.2))
+    >>> interpolate(ls, 0, True).coords
+    (0.0, 0.0)
+    >>> interpolate(ls, 0.5, True).coords
+    (1.1, 1.1)
+    >>> interpolate(ls, 1.0, True).coords
+    (2.2, 2.2)
+    """
+    # Use Shapely because geodjango's native GEOS support doesn't
+    # provide the interpolate() function.
+    # See https://code.djangoproject.com/ticket/18209
+    import shapely.geometry
+    try:
+        center = shapely.geometry.LineString(linestring).interpolate(distance, normalized)
+    except (ImportError, AttributeError):
+        # Might be that the platform doesn't have a recent-enough GEOS; needs 1.6.
+        # This version uses database, and requires normalized.
+        if not normalized:
+            raise ValueError("Can't call interpolate() with normalized=False unless you have GEOS version 1.6 or later.")
+        from django.db import connection
+        from django.contrib.gis.geos import fromstr
+        cursor = connection.cursor()
+        cursor.execute('SELECT line_interpolate_point(%s, %s)', [linestring.wkt, distance])
+        wkb_hex = cursor.fetchone()[0]
+        center = fromstr(wkb_hex)
+    center = Point(*list(center.coords))
+    return center
+
 
 def geos_with_projection(geom, projection=4326):
     """

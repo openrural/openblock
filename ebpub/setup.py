@@ -55,9 +55,11 @@ with open(os.path.join(here, 'README.txt')) as file:
     # Remove stuff that breaks vanilla rst (no sphinx)
     # and doesn't belong on a pypi page anyway.
     long_description = long_description.split('Older Changes')[0]
+    long_description = long_description.replace(':ref:', '')
+    long_description = long_description.replace(':doc:', '')
 
 
-VERSION="1.2.0dev"
+VERSION="1.3dev"
 
 setup(
     name='ebpub',
@@ -87,6 +89,7 @@ setup(
         'easy-thumbnails',
         'PIL',  # Needed for our ImageField
         'pytz',
+        'shapely',
     ],
     dependency_links=[
     "http://www.voidspace.org.uk/downloads/mock-0.8.0alpha1.tar.gz#egg=mock-0.8.0alpha1",
