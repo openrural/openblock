@@ -612,7 +612,10 @@ class PlaceType(models.Model):
     slug = models.CharField(max_length=255, db_index=True, unique=True)
     is_geocodable = models.BooleanField(default=True, help_text="Whether this type of place is searched by name during geocoding.")
     is_mappable = models.BooleanField(default=True, help_text="Whether this type is available as a map layer to users")
-    map_icon_url = models.TextField(blank=True, null=True)
+    map_icon_url = models.TextField(
+        blank=True, null=True,
+        help_text="Set this to a URL to a small image icon and it will be displayed on maps. If it's a relative URL, it will be assumed relative to settings.STATIC_URL.")
+
     map_color = models.CharField(max_length=255, blank=True, null=True, help_text="CSS Color used on maps to display this type of place. eg #FF0000")
 
     def get_map_icon_url(self):
@@ -622,12 +625,12 @@ class PlaceType(models.Model):
             url = '%s/%s' % (settings.STATIC_URL.rstrip('/'), url)
         return url
 
-
     def natural_key(self):
         return (self.slug, )
-        
+
     def __unicode__(self):
         return self.name
+
 
 class Place(models.Model):
     """

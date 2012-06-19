@@ -602,8 +602,7 @@ class Schema(models.Model):
     # TODO: maybe this should be either a FileField or a FilePathField instead?
     map_icon_url = models.TextField(
         blank=True, null=True,
-        help_text="Set this to a URL to a small image icon and it will be displayed on maps. Should be roughly 40x40 pixels. Optional.",
-        )
+        help_text="Optional. Set this to a URL to a small image icon and it will be displayed on maps. Should be roughly 40x40 pixels. If it's a relative URL, it will be assumed relative to settings.STATIC_URL.")
 
     def get_map_icon_url(self):
         # Could be relative.
