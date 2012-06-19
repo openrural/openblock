@@ -82,7 +82,8 @@ INSTALLED_APPS = (
     'django.contrib.humanize',
     'django.contrib.sessions',
     'django.contrib.sites',
-    'django_static',
+    'django.contrib.staticfiles',
+    'compressor',
     'ebdata.blobs',
     'ebdata.geotagger',
     'ebpub.accounts',
@@ -121,8 +122,7 @@ APPS_NOT_FOR_TESTING = (
         'django.contrib.auth',
         # this makes too many weird assumptions about the database underpinnings
         'django.contrib.contenttypes',
-        # these tests break with some settings, see https://github.com/peterbe/django-static/issues#issue/8 and 9
-        'django_static',
+        'compressor',
         # these tests break under django 1.3, unsure why.
         'django.contrib.messages',
         # the rest are just not of interest.
@@ -307,56 +307,70 @@ MAP_CUSTOM_BASE_LAYERS = {
 ##########################
 
 # Core Django settings for static media and uploaded files,
-# see https://docs.djangoproject.com/en/dev/ref/settings/#media-root
+# see http://docs.djangoproject.com/en/dev/ref/settings/#media-root
 
-# Where static media live.
-STATIC_ROOT = os.path.join(EBPUB_DIR, 'media')
+# Where static media are collected to, via the staticfiles app.
+# See http://docs.djangoproject.com/en/1.3/ref/contrib/staticfiles
+STATIC_ROOT = os.path.join(EBPUB_DIR, 'static_root')
 # Where to serve these files.  For production deployment, ensure your
 # webserver makes STATIC_ROOT available at this URL.
-STATIC_URL = '/'
+STATIC_URL = '/static/'
 
 # Where to put files uploaded by users.
-MEDIA_ROOT = os.path.join(STATIC_ROOT, 'uploads')
+MEDIA_ROOT = os.path.join(EBPUB_DIR, 'media_root')
 # Where to serve these files.  For production deployment, ensure your
 # webserver makes MEDIA_ROOT available at this URL.
 MEDIA_URL = '/uploads/'
 
 required_settings.extend(['STATIC_ROOT', 'MEDIA_ROOT', 'STATIC_URL', 'MEDIA_URL'])
 
-
 # Static media optimizations: whitespace slimming, URL timestamping.
-# see https://github.com/peterbe/django-static#readme
+# see http://django_compressor.readthedocs.org
 # This supercedes the old everyblock-specific template tags in
 # everyblock.templatetags.staticmedia.
-DJANGO_STATIC = True
-DJANGO_STATIC_MEDIA_ROOTS = [MEDIA_ROOT, STATIC_ROOT,]
 
+#COMPRESS_ENABLED = not DEBUG
 
-# Putting django-static's output in a separate directory and URL space
+# Putting django-compressor's output in a separate directory and URL space
 # makes it easier for git to ignore them,
 # and easier to have eg. apache set appropriate expiration dates.
-DJANGO_STATIC_NAME_PREFIX = '/cache-forever'
 # Make sure you have write permission here!!
-DJANGO_STATIC_SAVE_PREFIX = os.path.join(STATIC_ROOT, DJANGO_STATIC_NAME_PREFIX[1:])
+## We use the default django-compressor settings.
+#COMPRESS_OUTPUT_DIR = 'CACHE'  # Relative to COMPRESS_ROOT or STATIC_ROOT
+#COMPRESS_URL = STATIC_URL
 
+# Make CSS files smaller too.
+COMPRESS_CSS_FILTERS = (
+    'compressor.filters.css_default.CssAbsoluteFilter',
+    'compressor.filters.cssmin.CSSMinFilter',
+)
+
+# Need this to use both django.contrib.staticfiles and django-compressor:
+STATICFILES_FINDERS = (
+    # This one goes first, contrary to compressor docs,
+    # because that way the runserver wsgi app finds collected files
+    # first; otherwise, the non-collected ones get used.
+    # Caused by https://code.djangoproject.com/ticket/17737
+    'compressor.finders.CompressorFinder',
+    # Default finders.
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+)
 
 #############################
 # JAVASCRIPT LIBRARIES      #
 #############################
 
 
-# For local development you might try this:
-#JQUERY_URL = '/media/js/jquery.js'
 JQUERY_URL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js'
 
 # It's important that it be named exactly OpenLayers.js,
 # see http://trac.osgeo.org/openlayers/ticket/2982
-OPENLAYERS_URL = '/scripts/OpenLayers-2.11/OpenLayers.js'
-OPENLAYERS_IMG_PATH = '/scripts/OpenLayers-2.11/img/'
+OPENLAYERS_URL = STATIC_URL + 'scripts/OpenLayers-2.11/OpenLayers.js'
+OPENLAYERS_IMG_PATH = STATIC_URL + 'scripts/OpenLayers-2.11/img/'
 
 # For compatibility with django-olwidget
 OL_API = OPENLAYERS_URL
-
 
 
 ########################################
