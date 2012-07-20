@@ -161,7 +161,7 @@ class Geocoder(object):
                 # If multiple results were found, check whether they have the
                 # same point. If they all have the same point, don't raise the
                 # AmbiguousResult exception -- just return the first one.
-                # 
+                #
                 # An edge case is if result['point'] is None. This could happen
                 # if the geocoder found locations, not points. In that case,
                 # just raise the AmbiguousResult.
@@ -469,14 +469,14 @@ def full_geocode(query, search_places=True, convert_to_block=True, guess=False,
     from ebpub.streets.models import Place, PlaceSynonym
 
     # Search the Location table.
-    try:
-        canonical_loc = LocationSynonym.objects.get_canonical(query)
-        loc = Location.objects.get(normalized_name=canonical_loc)
-    except Location.DoesNotExist:
-        pass
-    else:
-        logger.debug('geocoded %r to Location %s' % (query, loc))
-        return {'type': 'location', 'result': loc, 'ambiguous': False}
+    canonical_loc = LocationSynonym.objects.get_canonical(query)
+    locs = Location.objects.filter(normalized_name=canonical_loc)
+    if len(locs) == 1:
+        logger.debug(u'geocoded %r to Location %s' % (query, locs[0]))
+        return {'type': 'location', 'result': locs[0], 'ambiguous': False}
+    elif len(locs) > 1:
+        logger.debug(u'geocoded %r to multiple Locations: %s' % (query, unicode(locs)))
+        return {'type': 'location', 'result': locs, 'ambiguous': True}
 
     # Search the Place table, for stuff like "Sears Tower".
     if search_places:
