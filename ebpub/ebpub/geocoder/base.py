@@ -478,18 +478,19 @@ def full_geocode(query, search_places=True, convert_to_block=True, guess=False,
         logger.debug(u'geocoded %r to multiple Locations: %s' % (query, unicode(locs)))
         return {'type': 'location', 'result': locs, 'ambiguous': True}
 
-    # Search the Place table, for stuff like "Sears Tower".
-    if search_places:
-        canonical_place = PlaceSynonym.objects.get_canonical(query)
-        places = Place.objects.filter(normalized_name=canonical_place)
-        if len(places) == 1:
-            logger.debug(u'geocoded %r to Place %s' % (query, places[0]))
-            return {'type': 'place', 'result': places[0], 'ambiguous': False}
-        elif len(places) > 1:
-            # TODO: Places don't know about city, state, zip...
-            # so we can't disambiguate.
-            logger.debug(u'geocoded %r to multiple Places: %s' % (query, unicode(places)))
-            return {'type': 'place', 'result': places, 'ambiguous': True}
+# The current Place search implementation is error-prone & should be revisited.
+#    # Search the Place table, for stuff like "Sears Tower".
+#    if search_places:
+#        canonical_place = PlaceSynonym.objects.get_canonical(query)
+#        places = Place.objects.filter(normalized_name=canonical_place)
+#        if len(places) == 1:
+#            logger.debug(u'geocoded %r to Place %s' % (query, places[0]))
+#            return {'type': 'place', 'result': places[0], 'ambiguous': False}
+#        elif len(places) > 1:
+#            # TODO: Places don't know about city, state, zip...
+#            # so we can't disambiguate.
+#            logger.debug(u'geocoded %r to multiple Places: %s' % (query, unicode(places)))
+#            return {'type': 'place', 'result': places, 'ambiguous': True}
 
     # Try geocoding this as an address.
     geocoder = SmartGeocoder(use_cache=getattr(settings, 'EBPUB_CACHE_GEOCODER', False))
