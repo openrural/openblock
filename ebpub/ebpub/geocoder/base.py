@@ -470,7 +470,7 @@ def full_geocode(query, search_places=True, convert_to_block=True, guess=False,
 
     # Search the Location table.
     canonical_loc = LocationSynonym.objects.get_canonical(query)
-    locs = Location.objects.filter(normalized_name__contains=canonical_loc)
+    locs = Location.objects.filter(normalized_name=canonical_loc)
     if len(locs) == 1:
         logger.debug(u'geocoded %r to Location %s' % (query, locs[0]))
         return {'type': 'location', 'result': locs[0], 'ambiguous': False}
@@ -481,7 +481,7 @@ def full_geocode(query, search_places=True, convert_to_block=True, guess=False,
     # Search the Place table, for stuff like "Sears Tower".
     if search_places:
         canonical_place = PlaceSynonym.objects.get_canonical(query)
-        places = Place.objects.filter(normalized_name__contains=canonical_place)
+        places = Place.objects.filter(normalized_name=canonical_place)
         if len(places) == 1:
             logger.debug(u'geocoded %r to Place %s' % (query, places[0]))
             return {'type': 'place', 'result': places[0], 'ambiguous': False}
