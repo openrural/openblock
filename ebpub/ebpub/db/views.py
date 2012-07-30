@@ -384,31 +384,21 @@ def search(request, schema_slug=''):
                      exc_info=True)
     else:
         if result['ambiguous']:
-            if result['type'] == 'block':
-                street_blocks = {}
-                for block in result['result']:
+            if result['type'] == 'block' or result['type'] == 'address':
+                streets = []
+                choices = {}
+                for x in result['result']:
+                    block = x if result['type'] == 'block' else x['block']
                     street_name = '{0}, {1}, {2} {3}'.format(block.street_pretty_name,
-                            block.city.title(), block.state, block.zip)
-                    if street_name not in street_blocks:
-                        street_blocks[street_name] = []
-                    street_blocks[street_name].append(block) 
-                choices = [{'name': s, 'blocks': street_blocks[s]} for s in street_blocks.keys()]
+                            block.city.title(), block.state, block.zip).strip()
+                    if street_name not in streets:
+                        streets.append(street_name)
+                        choices[street_name] = {'name': street_name, 'street_url': block.street_url, 'blocks': []}
+                    choices[street_name]['blocks'].append(block)
+                choices = choices.values()
+                for choice in choices:
+                    choice['blocks'].sort(key=lambda x: x.predir)
                 return eb_render(request, 'db/search_invalid_block.html', {
-                    'query': q,
-                    'choices': choices,
-                })
-            elif result['type'] == 'address':
-                street_urls = []
-                choices = []
-                for address in result['result']:
-                    block = address['block']
-                    street_url = block.street_url()
-                    if street_url not in street_urls:
-                        street_urls.append(street_url)
-                        street_name = '{0}, {1}, {2} {3}'.format(block.street_pretty_name,
-                                block.city.title(), block.state, block.zip)
-                        choices.append({'name': street_name, 'url': street_url})
-                return eb_render(request, 'db/search_ambiguous_address.html', {
                     'query': q,
                     'choices': choices,
                 })
