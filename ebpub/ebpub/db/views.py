@@ -385,17 +385,30 @@ def search(request, schema_slug=''):
     else:
         if result['ambiguous']:
             if result['type'] == 'block':
-                streets = []
                 street_blocks = {}
                 for block in result['result']:
-                    street_name = block.street_pretty_name
-                    if street_name not in streets:
-                        streets.append(street_name)
+                    street_name = '{0}, {1}, {2} {3}'.format(block.street_pretty_name,
+                            block.city.title(), block.state, block.zip)
+                    if street_name not in street_blocks:
                         street_blocks[street_name] = []
-                    street_blocks[street_name].append(block)
-
-                choices = [{'name': s, 'blocks': street_blocks[s]} for s in streets]
+                    street_blocks[street_name].append(block) 
+                choices = [{'name': s, 'blocks': street_blocks[s]} for s in street_blocks.keys()]
                 return eb_render(request, 'db/search_invalid_block.html', {
+                    'query': q,
+                    'choices': choices,
+                })
+            elif result['type'] == 'address':
+                street_urls = []
+                choices = []
+                for address in result['result']:
+                    block = address['block']
+                    street_url = block.street_url()
+                    if street_url not in street_urls:
+                        street_urls.append(street_url)
+                        street_name = '{0}, {1}, {2} {3}'.format(block.street_pretty_name,
+                                block.city.title(), block.state, block.zip)
+                        choices.append({'name': street_name, 'url': street_url})
+                return eb_render(request, 'db/search_ambiguous_address.html', {
                     'query': q,
                     'choices': choices,
                 })
