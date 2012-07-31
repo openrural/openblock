@@ -397,12 +397,12 @@ def search(request, schema_slug=''):
                     choices[street_name]['blocks'].append(block)
                 choices = choices.values()
                 for choice in choices:
-                    choice['blocks'].sort(key=lambda x: x.predir)
+                    choice['blocks'].sort(key=lambda x: (x.predir, x.postdir))
                 return eb_render(request, 'db/search_invalid_block.html', {
                     'query': q,
                     'choices': choices,
                 })
-            else:
+            else:  # 'location' or 'place'
                 # TODO: does this work with Places?
                 return eb_render(request, 'db/did_you_mean.html', {'query': q, 'choices': result['result']})
 
