@@ -25,6 +25,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from ebpub.geocoder.parser.parsing import normalize, parse, ParsingError
+from ebpub.metros.allmetros import get_metro
 from ebpub.utils.text import address_to_block
 import logging
 import re
@@ -278,7 +279,9 @@ class AddressGeocoder(Geocoder):
             from ebpub.db.models import Location
 
             # Also searches in cities with matching normalized name.
-            cities = [location['city']] + list(Location.objects.filter(normalized_name=location['city']).values_list('name', flat=True))
+            city_type_slug = get_metro()['city_location_type']
+            cities = [location['city']] + list(Location.objects.filter(location_type__slug=city_type_slug,
+                    normalized_name=location['city']).values_list('name', flat=True))
             blocks = []
             for city in cities:
                 blocks.extend(Block.objects.search(
