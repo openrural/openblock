@@ -397,7 +397,7 @@ def search(request, schema_slug=''):
                     choices[street_name]['blocks'].append(block)
                 choices = choices.values()
                 for choice in choices:
-                    choice['blocks'].sort(key=lambda x: (x.predir, x.postdir))
+                    choice['blocks'].sort(key=lambda x: (x.predir, x.postdir, x.from_num))
                 return eb_render(request, 'db/search_invalid_block.html', {
                     'query': q,
                     'choices': choices,
