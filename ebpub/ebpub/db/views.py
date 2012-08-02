@@ -417,7 +417,9 @@ def search(request, schema_slug=''):
         elif result['type'] == 'address':
             # Block
             if result['result']['block']:
-                return HttpResponseRedirect(url_prefix + getattr(result['result']['block'], url_method)())
+                url = getattr(result['result']['block'], url_method)()
+                if url:
+                    return HttpResponseRedirect(url_prefix + url)
             # Intersection
             try:
                 intersection = Intersection.objects.get(id=result['result']['intersection_id'])
