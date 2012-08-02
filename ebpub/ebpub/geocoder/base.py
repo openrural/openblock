@@ -275,17 +275,23 @@ class AddressGeocoder(Geocoder):
         try:
             # Defer this to avoid import cycle.
             from ebpub.streets.models import Block
-            blocks = Block.objects.search(
-                street=location['street'],
-                number=location['number'],
-                predir=location['pre_dir'],
-                prefix=location['prefix'],
-                suffix=location['suffix'],
-                postdir=location['post_dir'],
-                city=location['city'],
-                state=location['state'],
-                zipcode=location['zip'],
-            )
+            from ebpub.db.models import Location
+
+            # Also searches in cities with matching normalized name.
+            cities = [location['city']] + list(Location.objects.filter(normalized_name=location['city']).values_list('name', flat=True))
+            blocks = []
+            for city in cities:
+                blocks.extend(Block.objects.search(
+                    street=location['street'],
+                    number=location['number'],
+                    predir=location['pre_dir'],
+                    prefix=location['prefix'],
+                    suffix=location['suffix'],
+                    postdir=location['post_dir'],
+                    city=city,
+                    state=location['state'],
+                    zipcode=location['zip'],
+                ))
         except:
             # TODO: replace with Block-specific exception?
             raise
