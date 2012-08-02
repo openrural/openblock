@@ -967,8 +967,8 @@ def city_list(request):
     city_type_slug = get_metro()['city_location_type']
     cities_with_streets = set([City.from_norm_name(c['city']).slug
                                for c in Street.objects.order_by().distinct().values('city')])
-    all_cities = [City.from_norm_name(v['slug']) for v in
-                  Location.objects.filter(location_type__slug=city_type_slug).values('slug', 'name').order_by('name')]
+    all_cities = [City(v['name'], v['slug'], v['normalized_name']) for v in
+                  Location.objects.filter(location_type__slug=city_type_slug).values('slug', 'name', 'normalized_name').order_by('name')]
 
     all_cities = [city for city in all_cities if city.slug.strip()]
     return eb_render(request, 'db/city_list.html',
