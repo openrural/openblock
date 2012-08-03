@@ -295,6 +295,7 @@ class AddressGeocoder(Geocoder):
                     state=location['state'],
                     zipcode=location['zip'],
                 ))
+            blocks = set(blocks)
         except:
             # TODO: replace with Block-specific exception?
             raise
